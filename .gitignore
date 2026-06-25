@@ -1,0 +1,8 @@
+# Yocto build artifacts (never commit these)
+build/
+tmp/
+sstate-cache/
+downloads/
+*.wic
+*.wic.bz2
+*.rootfs.*
