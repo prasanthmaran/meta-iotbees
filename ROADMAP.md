@@ -33,7 +33,7 @@ Field devices  ->  IoT Bees gateway  ->  your cloud
 | 3 | `meta-iotbees` layer (distro, image recipe, license) | ✅ |
 | 4 | Protocol stacks as recipes (libmodbus, bluez5) | 🟡 |
 | 5 | Core agent: Modbus → MQTT + device health (C, v0.1) | 🟡 |
-| 6 | Terminal onboarding: set cloud domain + credentials | ⬜ |
+| 6 | Terminal onboarding: set cloud domain + credentials | ✅ (v0.1) |
 | 7 | Remote UI pairing: remote URL + short-lived 6-digit code | ⬜ |
 | 8 | Image hardening + OTA updates + security review | ⬜ |
 | 9 | Release pipeline: versioned images + install docs | ⬜ |
@@ -51,14 +51,54 @@ Field devices  ->  IoT Bees gateway  ->  your cloud
 | HTTP/HTTPS | transport (out) | none | ⬜ |
 | CoAP / AMQP | transport (out) | none | ⬜ |
 
+## Reliability & data safety (field-grade)
+
+These make IoT Bees trustworthy on a remote gateway that may lose power or
+connectivity. **All planned.**
+
+- ⬜ **Offline support / store-and-forward** — when the cloud is unreachable, the
+  agent keeps reading sensors and **buffers data locally**, then auto-syncs in
+  order once the connection returns. No data lost during outages.
+- ⬜ **Local sensor-data storage** — readings persisted on-device (e.g. SQLite or
+  a size-capped ring buffer) with configurable retention, so data survives
+  reboots and brief outages independent of the cloud.
+- ⬜ **Easy data export / recovery** — if the OS has an issue, the locally stored
+  sensor data can be **exported in one command** (CSV/JSON) to USB, SD, or over
+  the network (`iotbees-export`), so data is recoverable even from a degraded
+  device.
+- ⬜ **Quick backup & restore** — one command to back up config + buffered data
+  (`iotbees-backup`) and restore it onto a re-flashed or replacement gateway, so
+  swapping hardware is fast and lossless.
+- ⬜ **Resilient boot** — read-only root + writable data partition and atomic OTA
+  with rollback, so a bad update or power cut can't brick the gateway.
+
+## Security (strong, non-negotiable)
+
+IoT gateways sit on customer networks — security is a first-class requirement,
+not an afterthought. **All planned.**
+
+- ⬜ **No default passwords** — forced credential setup on first boot.
+- ⬜ **Secure boot + signed images** — only signed IoT Bees images run; signed OTA
+  updates only.
+- ⬜ **Encrypted data at rest** — local sensor buffer and credentials encrypted on
+  the device.
+- ⬜ **TLS everywhere** — encrypted MQTT/HTTPS to the cloud; certificate-based
+  device identity.
+- ⬜ **Least privilege** — the agent runs unprivileged; minimal installed packages
+  to shrink attack surface.
+- ⬜ **Timely patching** — track upstream CVEs via the Yocto LTS and ship security
+  updates over OTA.
+- ⬜ **Audit + firewall defaults** — sane firewall rules and logging out of the box.
+
 ## Agent roadmap (the `iotbees-agent`)
 
 - 🟡 v0.1 — single Modbus TCP register → MQTT data + health heartbeat (C, libmodbus, Paho).
 - ⬜ Config-driven multi-device, multiple registers, register maps / device templates.
 - ⬜ BLE source via BlueZ.
-- ⬜ Local buffering / store-and-forward when the cloud is unreachable.
+- ⬜ Local buffering + store-and-forward (offline support).
+- ⬜ Local data store + `iotbees-export` (CSV/JSON) and `iotbees-backup`.
 - ⬜ Pluggable output transports (HTTP, etc.) behind one internal data model.
-- ⬜ Secure credentials, TLS to the broker.
+- ⬜ TLS + encrypted credentials to the broker.
 
 ## Tech stack (locked)
 
@@ -71,7 +111,7 @@ Field devices  ->  IoT Bees gateway  ->  your cloud
 ## Notes
 
 - The `paho-mqtt-c` and `libmodbus` recipes come from `meta-openembedded`
-  (already added in the build guide). If `paho-mqtt-c` is unavailable in your
-  layer set, add the recipe before building `iotbees-agent`.
+  (already added in the build guide).
 - v0.1 of the agent is a skeleton meant to prove the Modbus→MQTT loop end to end,
-  not a finished product.
+  not a finished product. Reliability and security items above are the path from
+  "works on a bench" to "trustworthy in the field."
