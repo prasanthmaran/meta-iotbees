@@ -90,6 +90,38 @@ not an afterthought. **All planned.**
   updates over OTA.
 - ⬜ **Audit + firewall defaults** — sane firewall rules and logging out of the box.
 
+## Device identity & connectivity fabric
+
+So every gateway is uniquely identifiable and reachable from anywhere — even
+behind NAT/firewalls — without exposing it to the public internet. **All planned.**
+Build on proven components; do **not** write a VPN from scratch.
+
+- ⬜ **Unique device identity (bound to hardware)** — each gateway's ID is derived
+  from a stable hardware identifier: the **MAC address** (Ethernet/Wi-Fi) or, on
+  cellular gateways, the modem **IMEI** (and SIM **IMSI**). This binds identity to
+  the physical device.
+  - Caveat: MAC/IMEI can be *read* and spoofed, so they are used as the human-
+    readable identity, **paired with a per-device certificate** (ideally in a
+    secure element / TPM) for the cryptographic identity that actually
+    authenticates the device. Hardware ID = the name; certificate = the proof.
+- ⬜ **Overlay mesh network (WireGuard)** — every device joins a private virtual
+  network (via WireGuard — e.g. Tailscale / NetBird / ZeroTier) and gets a stable
+  private IP, so any gateway is reachable by identity from anywhere, securely.
+- ⬜ **Reverse-tunnel + rendezvous** (alt/complement) — device dials out to a
+  coordination server; remote access works through outbound connections only.
+  Pairs with the remote URL + short-lived 6-digit login (Step 7).
+- ⬜ **MQTT control channel** — per-device command topic for lightweight remote
+  control, reusing the existing broker.
+- ⬜ **Control plane** — a coordination service (self-hosted or a managed tier)
+  that brokers connections and tracks which devices are online. Runs in the
+  cloud; **not** part of the OS image.
+- ⬜ **Enrollment & revocation** — secure onboarding of new devices and the
+  ability to instantly revoke a lost/compromised gateway's access.
+
+> Note: like the cloud backend, the control plane is a companion service, not
+> part of the flashable image. The device ships with the identity + WireGuard
+> client; the coordinator lives in the cloud.
+
 ## Agent roadmap (the `iotbees-agent`)
 
 - 🟡 v0.1 — single Modbus TCP register → MQTT data + health heartbeat (C, libmodbus, Paho).
