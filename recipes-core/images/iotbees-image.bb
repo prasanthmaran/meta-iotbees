@@ -3,10 +3,11 @@ LICENSE = "MIT"
 
 require recipes-core/images/core-image-minimal.bb
 
-# Field protocols + transport + remote access baked into every image.
-# Steps 4-5 of the build guide flesh this out (add the iotbees-agent recipe).
+# Field protocols + transport + the IoT Bees agent, baked into every image.
 IMAGE_INSTALL:append = " \
     openssh \
     libmodbus \
     bluez5 \
+    paho-mqtt-c \
+    iotbees-agent \
     "

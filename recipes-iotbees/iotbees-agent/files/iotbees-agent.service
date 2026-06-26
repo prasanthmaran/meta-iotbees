@@ -1,0 +1,12 @@
+[Unit]
+Description=IoT Bees Agent (field protocols -> MQTT)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/iotbees-agent /etc/iotbees/agent.conf
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
