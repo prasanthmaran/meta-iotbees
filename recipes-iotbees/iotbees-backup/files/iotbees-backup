@@ -1,0 +1,31 @@
+#!/bin/sh
+# IoT Bees - backup: save config + local data to a single archive.
+# Usage: iotbees-backup [destination-dir]    (default: /mnt/backup)
+#
+# Backs up:
+#   /etc/iotbees       - config, device identity, token
+#   /var/lib/iotbees   - local/buffered sensor data (if present)
+
+set -e
+DEST=${1:-/mnt/backup}
+SRC="/etc/iotbees /var/lib/iotbees"
+
+DEV=$(grep -E '^device_id' /etc/iotbees/agent.conf 2>/dev/null | cut -d= -f2 | tr -d ' ')
+[ -z "$DEV" ] && DEV=gateway
+STAMP=$(date +%Y%m%d-%H%M%S)
+
+mkdir -p "$DEST"
+OUT="$DEST/iotbees-backup-$DEV-$STAMP.tar.gz"
+
+# include only paths that exist
+EXIST=""
+for d in $SRC; do [ -e "$d" ] && EXIST="$EXIST $d"; done
+if [ -z "$EXIST" ]; then
+  echo "Nothing to back up (no /etc/iotbees or /var/lib/iotbees)."
+  exit 1
+fi
+
+tar -czf "$OUT" $EXIST 2>/dev/null
+echo "Backup written:"
+ls -lh "$OUT"
+echo "Restore later with:  iotbees-restore $OUT"

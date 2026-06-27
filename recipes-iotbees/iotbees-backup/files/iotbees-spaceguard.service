@@ -1,0 +1,6 @@
+[Unit]
+Description=IoT Bees disk space guard (compress/prune old data when low)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/iotbees-spaceguard 90 /var/lib/iotbees

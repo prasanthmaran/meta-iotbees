@@ -3,8 +3,8 @@ LICENSE = "MIT"
 
 require recipes-core/images/core-image-minimal.bb
 
-# Field protocols + transport + the IoT Bees agent and setup wizard,
-# baked into every image.
+# Field protocols + transport + the IoT Bees agent, setup wizard, and
+# backup/restore tools, baked into every image.
 IMAGE_INSTALL:append = " \
     openssh \
     libmodbus \
@@ -12,4 +12,5 @@ IMAGE_INSTALL:append = " \
     paho-mqtt-c \
     iotbees-agent \
     iotbees-setup \
+    iotbees-backup \
     "

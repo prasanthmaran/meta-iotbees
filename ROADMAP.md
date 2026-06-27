@@ -66,9 +66,13 @@ connectivity. **All planned.**
   sensor data can be **exported in one command** (CSV/JSON) to USB, SD, or over
   the network (`iotbees-export`), so data is recoverable even from a degraded
   device.
-- ⬜ **Quick backup & restore** — one command to back up config + buffered data
-  (`iotbees-backup`) and restore it onto a re-flashed or replacement gateway, so
-  swapping hardware is fast and lossless.
+- ✅ (v0.1) **Quick backup & restore** — `iotbees-backup` saves config + local
+  data to a single archive; `iotbees-restore` restores it onto a re-flashed or
+  replacement gateway, so swapping hardware is fast and lossless.
+- ✅ (v0.1) **Emergency disk-space guard** — `iotbees-spaceguard` (timer-driven)
+  watches disk usage and, when it crosses a threshold, **compresses old data
+  first, then prunes the oldest archives** until there's room — so a full disk
+  can't take the gateway down.
 - ⬜ **Resilient boot** — read-only root + writable data partition and atomic OTA
   with rollback, so a bad update or power cut can't brick the gateway.
 

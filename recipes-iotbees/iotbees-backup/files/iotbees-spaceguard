@@ -1,0 +1,38 @@
+#!/bin/sh
+# IoT Bees - space guard: protect the gateway from running out of disk.
+# When usage crosses the threshold it (1) compresses old data, then
+# (2) prunes the oldest archives until back under the threshold.
+# Runs periodically via iotbees-spaceguard.timer.
+#
+# Usage: iotbees-spaceguard [threshold_pct] [data_dir]
+
+set -e
+THRESH=${1:-90}
+DATA=${2:-/var/lib/iotbees}
+
+[ -d "$DATA" ] || exit 0
+
+used() { df -P "$DATA" | awk 'NR==2 { gsub("%","",$5); print $5 }'; }
+
+U=$(used)
+if [ "$U" -lt "$THRESH" ]; then
+  echo "[spaceguard] disk ${U}% < ${THRESH}% - ok"
+  exit 0
+fi
+
+echo "[spaceguard] disk ${U}% >= ${THRESH}% - reclaiming space"
+
+# 1) compress uncompressed data files older than 1 day
+find "$DATA" -type f ! -name '*.gz' -mtime +1 -exec gzip -9 {} \; 2>/dev/null || true
+
+# 2) if still over threshold, delete oldest compressed archives until under it
+U=$(used)
+while [ "$U" -ge "$THRESH" ]; do
+  OLDEST=$(ls -1tr "$DATA"/*.gz 2>/dev/null | head -1)
+  [ -z "$OLDEST" ] && break
+  echo "[spaceguard] pruning oldest: $OLDEST"
+  rm -f "$OLDEST"
+  U=$(used)
+done
+
+echo "[spaceguard] done; disk now ${U}%"

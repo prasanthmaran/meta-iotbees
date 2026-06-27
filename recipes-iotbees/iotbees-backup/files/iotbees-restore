@@ -1,0 +1,24 @@
+#!/bin/sh
+# IoT Bees - restore: restore config + local data from a backup archive.
+# Usage: iotbees-restore <archive.tar.gz>
+
+set -e
+ARCHIVE=$1
+if [ -z "$ARCHIVE" ]; then
+  echo "Usage: iotbees-restore <archive.tar.gz>"
+  exit 1
+fi
+if [ ! -f "$ARCHIVE" ]; then
+  echo "Archive not found: $ARCHIVE"
+  exit 1
+fi
+
+echo "Restoring from $ARCHIVE ..."
+tar -xzf "$ARCHIVE" -C /
+echo "Restore complete."
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl restart iotbees-agent 2>/dev/null \
+    && echo "Restarted iotbees-agent with restored config." \
+    || echo "Start the agent with: systemctl start iotbees-agent"
+fi
