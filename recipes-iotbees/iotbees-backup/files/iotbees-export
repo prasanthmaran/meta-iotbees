@@ -1,0 +1,28 @@
+#!/bin/sh
+# IoT Bees - export local data for recovery (USB / SD / network).
+# Bundles everything under /var/lib/iotbees into one archive at the destination,
+# so you can pull the device's data out even in a degraded state.
+# Usage: iotbees-export [destination-dir]    (default: /mnt/usb)
+
+set -e
+DEST=${1:-/mnt/usb}
+DATA=/var/lib/iotbees
+
+if [ ! -d "$DATA" ]; then
+  echo "No data directory at $DATA (nothing to export yet)."
+  exit 1
+fi
+
+DEV=$(grep -E '^device_id' /etc/iotbees/agent.conf 2>/dev/null | cut -d= -f2 | tr -d ' ')
+[ -z "$DEV" ] && DEV=gateway
+STAMP=$(date +%Y%m%d-%H%M%S)
+
+mkdir -p "$DEST"
+OUT="$DEST/iotbees-data-$DEV-$STAMP.tar.gz"
+
+tar -czf "$OUT" -C "$DATA" . 2>/dev/null
+echo "Exported local data to:"
+ls -lh "$OUT"
+echo
+echo "If the device is unbootable instead: power off, remove the SD card,"
+echo "mount it on a PC, and copy $DATA directly."

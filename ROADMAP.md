@@ -62,10 +62,15 @@ connectivity. **All planned.**
 - ⬜ **Local sensor-data storage** — readings persisted on-device (e.g. SQLite or
   a size-capped ring buffer) with configurable retention, so data survives
   reboots and brief outages independent of the cloud.
-- ⬜ **Easy data export / recovery** — if the OS has an issue, the locally stored
-  sensor data can be **exported in one command** (CSV/JSON) to USB, SD, or over
-  the network (`iotbees-export`), so data is recoverable even from a degraded
-  device.
+- ✅ (v0.1) **Easy data export / recovery** — `iotbees-export` bundles the locally
+  stored data to USB, SD, or over the network in one command; if the device is
+  unbootable, the SD card can be read directly on a PC. (CSV/JSON formatting comes
+  with the local-store format.)
+- ✅ (v0.1) **Adaptive sample rate under pressure** — when the disk crosses a
+  threshold (mainly during offline buffering), the agent automatically **slows the
+  sample rate** up to a cap to make space last, and returns to normal once the
+  disk recovers. The current rate + a backoff flag are reported on the health
+  channel.
 - ✅ (v0.1) **Quick backup & restore** — `iotbees-backup` saves config + local
   data to a single archive; `iotbees-restore` restores it onto a re-flashed or
   replacement gateway, so swapping hardware is fast and lossless.

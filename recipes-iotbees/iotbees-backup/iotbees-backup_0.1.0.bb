@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = "file://iotbees-backup \
            file://iotbees-restore \
+           file://iotbees-export \
            file://iotbees-spaceguard \
            file://iotbees-spaceguard.service \
            file://iotbees-spaceguard.timer"
@@ -20,6 +21,7 @@ do_install() {
     install -d ${D}${bindir}
     install -m 0755 ${WORKDIR}/iotbees-backup     ${D}${bindir}/iotbees-backup
     install -m 0755 ${WORKDIR}/iotbees-restore    ${D}${bindir}/iotbees-restore
+    install -m 0755 ${WORKDIR}/iotbees-export     ${D}${bindir}/iotbees-export
     install -m 0755 ${WORKDIR}/iotbees-spaceguard ${D}${bindir}/iotbees-spaceguard
 
     install -d ${D}${systemd_system_unitdir}
