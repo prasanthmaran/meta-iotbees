@@ -1,16 +1,17 @@
 /*
- * IoT Bees agent - v0.1 skeleton
+ * IoT Bees agent - v0.2 skeleton
  * -------------------------------
- * Reads a Modbus TCP holding register and publishes it to an MQTT broker as
- * JSON, plus a periodic device-health/heartbeat message.
+ * - Reads a Modbus TCP holding register and publishes telemetry to MQTT.
+ * - Publishes DEVICE HEALTH/METADATA (CPU temp, memory, disk, uptime, load)
+ *   on a SEPARATE health topic, for remote monitoring.
+ * - Supports TOKEN auth: an MQTT username + token (password) so the cloud
+ *   broker only accepts authenticated pushes.
  *
- * Layer:    field protocol (Modbus, via libmodbus)  ->  transport (MQTT, via Paho)
- * Deps:     libmodbus, Eclipse Paho MQTT C (paho-mqtt3c)
- * License:  MIT
+ * Deps:    libmodbus, Eclipse Paho MQTT C (paho-mqtt3c)
+ * License: MIT
  *
- * This is an early skeleton: a single Modbus source and a single register.
- * The roadmap (ROADMAP.md) covers BLE, multi-device, register maps, the
- * remote-UI pairing, OTA, and more.
+ * Early skeleton: single Modbus source/register. Roadmap (ROADMAP.md) covers the
+ * pluggable multi-protocol driver framework, BLE, offline buffering, and more.
  */
 
 #include <stdio.h>
@@ -19,6 +20,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <stdint.h>
+#include <sys/sysinfo.h>
+#include <sys/statvfs.h>
 #include <modbus/modbus.h>
 #include "MQTTClient.h"
 
@@ -32,6 +35,8 @@ typedef struct {
     int  modbus_count;
     char mqtt_broker[256];
     char mqtt_client_id[128];
+    char mqtt_username[128];   /* token auth: username */
+    char mqtt_token[256];      /* token auth: token used as MQTT password */
     char mqtt_topic_data[256];
     char mqtt_topic_health[256];
     char device_id[128];
@@ -45,6 +50,8 @@ static void set_defaults(config_t *c) {
     c->modbus_count = 1;
     strcpy(c->mqtt_broker,       "tcp://localhost:1883");
     strcpy(c->mqtt_client_id,    "iotbees-gateway");
+    c->mqtt_username[0] = 0;
+    c->mqtt_token[0]    = 0;
     strcpy(c->mqtt_topic_data,   "iotbees/data");
     strcpy(c->mqtt_topic_health, "iotbees/health");
     strcpy(c->device_id,         "gateway-001");
@@ -74,12 +81,34 @@ static void load_config(const char *path, config_t *c) {
         else if (!strcmp(key, "modbus_count"))      c->modbus_count = atoi(val);
         else if (!strcmp(key, "mqtt_broker"))       strncpy(c->mqtt_broker, val, sizeof(c->mqtt_broker) - 1);
         else if (!strcmp(key, "mqtt_client_id"))    strncpy(c->mqtt_client_id, val, sizeof(c->mqtt_client_id) - 1);
+        else if (!strcmp(key, "mqtt_username"))     strncpy(c->mqtt_username, val, sizeof(c->mqtt_username) - 1);
+        else if (!strcmp(key, "mqtt_token"))        strncpy(c->mqtt_token, val, sizeof(c->mqtt_token) - 1);
         else if (!strcmp(key, "mqtt_topic_data"))   strncpy(c->mqtt_topic_data, val, sizeof(c->mqtt_topic_data) - 1);
         else if (!strcmp(key, "mqtt_topic_health")) strncpy(c->mqtt_topic_health, val, sizeof(c->mqtt_topic_health) - 1);
         else if (!strcmp(key, "device_id"))         strncpy(c->device_id, val, sizeof(c->device_id) - 1);
         else if (!strcmp(key, "interval_sec"))      c->interval_sec = atoi(val);
     }
     fclose(f);
+}
+
+/* --- device health / metadata --- */
+static double read_cpu_temp_c(void) {
+    FILE *f = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
+    if (!f) return -1.0;
+    long milli = -1;
+    if (fscanf(f, "%ld", &milli) != 1) milli = -1;
+    fclose(f);
+    return (milli < 0) ? -1.0 : milli / 1000.0;
+}
+static int mem_used_pct(struct sysinfo *si) {
+    if (si->totalram == 0) return -1;
+    unsigned long used = si->totalram - si->freeram - si->bufferram;
+    return (int)(100.0 * used / si->totalram);
+}
+static int disk_used_pct(void) {
+    struct statvfs s;
+    if (statvfs("/", &s) != 0 || s.f_blocks == 0) return -1;
+    return (int)(100.0 * (s.f_blocks - s.f_bavail) / s.f_blocks);
 }
 
 static int mqtt_publish(MQTTClient client, const char *topic, const char *payload) {
@@ -100,8 +129,8 @@ int main(int argc, char **argv) {
     set_defaults(&cfg);
     load_config(conf_path, &cfg);
 
-    printf("[iotbees] agent v0.1 starting; device=%s broker=%s\n",
-           cfg.device_id, cfg.mqtt_broker);
+    printf("[iotbees] agent v0.2 starting; device=%s broker=%s auth=%s\n",
+           cfg.device_id, cfg.mqtt_broker, cfg.mqtt_username[0] ? "token" : "none");
 
     MQTTClient client;
     MQTTClient_connectOptions co = MQTTClient_connectOptions_initializer;
@@ -109,12 +138,14 @@ int main(int argc, char **argv) {
                       MQTTCLIENT_PERSISTENCE_NONE, NULL);
     co.keepAliveInterval = 20;
     co.cleansession      = 1;
+    if (cfg.mqtt_username[0]) co.username = cfg.mqtt_username;   /* token auth */
+    if (cfg.mqtt_token[0])    co.password = cfg.mqtt_token;
     if (MQTTClient_connect(client, &co) != MQTTCLIENT_SUCCESS) {
         fprintf(stderr, "[iotbees] MQTT connect failed to %s\n", cfg.mqtt_broker);
         return 1;
     }
 
-    char payload[512];
+    char payload[768];
     uint16_t regs[125];
 
     for (;;) {
@@ -138,10 +169,21 @@ int main(int argc, char **argv) {
             printf("[iotbees] data   -> %s %s\n", cfg.mqtt_topic_data, payload);
         }
 
-        /* --- publish device health / heartbeat --- */
+        /* --- publish device health + metadata (separate channel) --- */
+        struct sysinfo si;
+        int have_si = (sysinfo(&si) == 0);
+        double temp  = read_cpu_temp_c();
+        int    mempc = have_si ? mem_used_pct(&si) : -1;
+        int    diskpc = disk_used_pct();
+        long   uptime = have_si ? si.uptime : -1;
+        double load1 = have_si ? si.loads[0] / 65536.0 : -1.0;
+
         snprintf(payload, sizeof(payload),
-                 "{\"device\":\"%s\",\"ts\":%ld,\"status\":\"online\",\"modbus\":\"%s\"}",
-                 cfg.device_id, (long)now, ok ? "ok" : "error");
+                 "{\"device\":\"%s\",\"ts\":%ld,\"status\":\"online\",\"modbus\":\"%s\","
+                 "\"cpu_temp_c\":%.1f,\"mem_used_pct\":%d,\"disk_used_pct\":%d,"
+                 "\"uptime_s\":%ld,\"load1\":%.2f}",
+                 cfg.device_id, (long)now, ok ? "ok" : "error",
+                 temp, mempc, diskpc, uptime, load1);
         mqtt_publish(client, cfg.mqtt_topic_health, payload);
         printf("[iotbees] health -> %s %s\n", cfg.mqtt_topic_health, payload);
 

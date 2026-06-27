@@ -17,6 +17,8 @@ MB_HOST=$(get modbus_host);      : "${MB_HOST:=127.0.0.1}"
 MB_PORT=$(get modbus_port);      : "${MB_PORT:=502}"
 MB_REG=$(get modbus_reg);        : "${MB_REG:=0}"
 BROKER=$(get mqtt_broker);       : "${BROKER:=tcp://localhost:1883}"
+MQ_USER=$(get mqtt_username);    : "${MQ_USER:=}"
+MQ_TOKEN=$(get mqtt_token);      : "${MQ_TOKEN:=}"
 T_DATA=$(get mqtt_topic_data);   : "${T_DATA:=iotbees/data}"
 T_HEAL=$(get mqtt_topic_health); : "${T_HEAL:=iotbees/health}"
 INTERVAL=$(get interval_sec);    : "${INTERVAL:=5}"
@@ -43,6 +45,8 @@ MB_REG=$(ask "Register to read" "$MB_REG")
 echo
 echo "-- Where to push data TO (your cloud MQTT broker) --"
 BROKER=$(ask "MQTT broker URL" "$BROKER")
+MQ_USER=$(ask "MQTT username (blank = none)" "$MQ_USER")
+MQ_TOKEN=$(ask "MQTT token/password (blank = none)" "$MQ_TOKEN")
 T_DATA=$(ask "Data topic" "$T_DATA")
 T_HEAL=$(ask "Health topic" "$T_HEAL")
 INTERVAL=$(ask "Publish interval (sec)" "$INTERVAL")
@@ -61,6 +65,8 @@ modbus_count = 1
 # MQTT output (your cloud broker)
 mqtt_broker       = $BROKER
 mqtt_client_id    = $DEV
+mqtt_username     = $MQ_USER
+mqtt_token        = $MQ_TOKEN
 mqtt_topic_data   = $T_DATA
 mqtt_topic_health = $T_HEAL
 
