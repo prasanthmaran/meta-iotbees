@@ -3,36 +3,40 @@
 All notable changes to IoT Bees are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.0] — in development (not yet built/released)
+## [0.1.0] — BUILT & BOOTS ✅ (2026-06-30)
 
-First scaffolding of the IoT Bees distribution. **Status: code complete for the
-items below, but not yet built into an image or tested on hardware.**
+**Milestone: the first IoT Bees image builds with Yocto and boots successfully.**
+Verified by building `iotbees-image` for `qemux86-64` (Yocto Scarthgap 5.0 LTS)
+and booting it in QEMU — it reaches a login prompt as **"IoT Bees 0.1.0"** and the
+`iotbees-agent` starts automatically as a systemd service.
+
+### Verified in the built image
+- OS identifies as **IoT Bees 0.1.0** (`/etc/os-release`: `NAME="IoT Bees"`).
+- Boots via systemd to a login prompt.
+- `iotbees-agent` service starts on boot ("IoT Bees Agent (field protocols -> MQTT)").
+- Installed: iotbees-agent, iotbees-setup, iotbees-backup, iotbees-export,
+  libmodbus5 3.1.10 (Modbus), paho-mqtt-c 1.3.13 (MQTT), bluez5 5.72 (BLE), openssh.
 
 ### Added
-- **`meta-iotbees` Yocto layer** — built on Yocto **Scarthgap 5.0 LTS**.
-- **Distro definition** — the OS identifies as **"IoT Bees"** (`DISTRO = iotbees`),
-  systemd-based, with a per-image license manifest.
-- **Image recipe** (`iotbees-image`) targeting Raspberry Pi (ARM64).
-- **`iotbees-agent` v0.1 (C)** — reads a Modbus TCP register and publishes
-  telemetry **and** a device-health heartbeat to MQTT (libmodbus + Paho MQTT C),
-  runs as a systemd service.
-- **`iotbees-setup`** — terminal onboarding wizard: configure the device source
-  and the cloud MQTT broker, then it writes the config and restarts the agent.
-- **Bundled packages:** openssh, libmodbus (Modbus), bluez5 (BLE), paho-mqtt-c (MQTT).
-- **Docs:** `README.md`, `BUILD.md`, `CONTRIBUTING.md`, `ROADMAP.md`, MIT `LICENSE`.
+- `meta-iotbees` Yocto layer (Scarthgap 5.0 LTS) + "IoT Bees" distro definition.
+- `iotbees-image` recipe (qemux86-64 verified; Raspberry Pi target next).
+- `iotbees-agent` (C): Modbus TCP -> MQTT telemetry + device health (CPU temp,
+  memory, disk, uptime, load), token auth, adaptive sample rate under disk pressure.
+- `iotbees-setup` terminal onboarding wizard.
+- `iotbees-backup` / `iotbees-restore` / `iotbees-export` and `iotbees-spaceguard`
+  (compress/prune old data when disk is low, timer-driven).
+- Docs: README, BUILD, TEST-QEMU, ROADMAP, CONTRIBUTING, MVP, docs/CONNECTORS.
 
-### Known limitations (v0.1)
-- Not yet built into a bootable image or tested on hardware.
+### Build fixes applied (Ubuntu 24.04 host)
+- Enable unprivileged user namespaces (`kernel.apparmor_restrict_unprivileged_userns=0`).
+- Add `usrmerge` to DISTRO_FEATURES so systemd provides udev (required by bluez5).
+- Pass `LDFLAGS` at link time in the agent Makefile (fixes GNU_HASH do_package_qa).
+
+### Known limitations (0.1.0)
 - Single Modbus TCP source / single register (multi-device planned).
-- No BLE, LoRa, or cellular support yet (on the roadmap).
-- No remote web UI / 6-digit pairing yet.
-- No OTA update mechanism or TLS to the broker yet.
+- No BLE/LoRa/cellular agent integration yet; no remote UI; no OTA; no TLS.
+- Raspberry Pi image not yet built (qemux86-64 verified; Pi is a re-target).
 
 ### Next
-- **Step 2:** build `iotbees-image` with Yocto and boot it on a Raspberry Pi.
-- See `ROADMAP.md` for the full plan.
-
----
-
-_Releases will be tagged here (e.g. `v0.1.0`) once an image is built, tested, and
-published to GitHub Releases._
+- Tag `v0.1.0`, publish the image to GitHub Releases.
+- Build the Raspberry Pi target; wire BLE; add TLS + the connector framework.
